@@ -1,0 +1,56 @@
+# Terraform Settings Block
+terraform {
+  required_version = ">= 1.0.0"
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+    helm = {
+      source  = "hashicorp/helm"
+      version = "~>2.0"
+    }
+    http = {
+      source  = "hashicorp/http"
+      version = "~>3.0"
+    }
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = "~>2.0"
+    }
+  }
+  # Adding Backend as S3 for Remote State Storage
+  backend "s3" {
+    bucket = "terraform-marcial"
+    key    = "hello-kitty/eks-cluster-20/terraform.tfstate"
+    region = "us-west-1"
+
+    # For State Locking
+    dynamodb_table = "terraform-locks"
+  }
+}
+
+# Terraform Provider Block
+provider "aws" {
+  region = var.aws_region
+}
+
+
+data "aws_eks_cluster_auth" "auth" {
+  name = var.cluster_name
+}
+provider "kubernetes" {
+  host                   = aws_eks_cluster.eks_cluster.endpoint
+  cluster_ca_certificate = base64decode(aws_eks_cluster.eks_cluster.certificate_authority[0].data)
+  token                  = data.aws_eks_cluster_auth.auth.token
+}
+
+provider "http" {}
+
+provider "helm" {
+  kubernetes {
+    host                   = aws_eks_cluster.eks_cluster.endpoint
+    cluster_ca_certificate = base64decode(aws_eks_cluster.eks_cluster.certificate_authority[0].data)
+    token                  = data.aws_eks_cluster_auth.auth.token
+  }
+}
